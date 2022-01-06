@@ -1,0 +1,76 @@
+def scan_nft_tweets(handle):
+    """ Searches all twitter accounts based on filter criteria and returns dataframe
+    """
+    client = get_Client()
+
+    # Pull unique attributes to desired twitter handle
+    twitter = scan_userinfo(handle)
+    twitter_id = twitter[0]
+    twitter_name = twitter[1]
+    twitter_username = twitter[2]
+
+    #####################
+    try:
+        search = client.get_users_tweets(id = twitter_id, max_results=5, start_time=date_start, end_time=date_end)
+        search_data = search.data
+
+        #########################
+        if search_data is None:
+            # Create 'No Data' dataframe
+            df = pd.DataFrame(data={'id':['No Data'],'text':['No Data'],'Follow':['No Data'],
+                                    'Twitter Name':[twitter_name],'Twitter @':[twitter_username]})
+            return df
+        else:
+            # Create dataframe
+            results = []
+
+            if not search_data is None:
+                for tweet in search_data:
+                    obj = {}
+                    obj['id'] = tweet.id
+                    obj['text'] = tweet.text
+                    results.append(obj)
+            else:
+                # For some reason, if a NaN passes through, create a 'No Data' dataframe
+                df = pd.DataFrame(data={'id':['No Data'],'text':['No Data'],'Follow':['No Data'],
+                                        'Twitter Name':[twitter_name],'Twitter @':[twitter_username]})
+                return df
+
+            #########################
+            # Filter tweet dataframe to look for tweet's that contain 'giveaways'
+            df = pd.DataFrame(results)
+            searchfor = ['giveaway', 'giving away']
+            filterout = ['Congratulations', 'congrats']
+            df = df[df['text'].str.contains("|".join(searchfor),case=False)]
+            df = df[~df['text'].str.contains("|".join(filterout),case=False)]
+
+            df = df.head(1)
+
+            df['Follow'] = df['text'].str.extract('@(.*)')
+            df['Follow'] = df['Follow'].str.split("(").str[0]
+            df['Follow'] = df['Follow'].str.split(':').str[0]
+            #df['Follow'] = df['Follow'].str.replace(':','')
+            #df['Follow'] = df['Follow'].str.split('(').str[0]
+
+
+            df['Twitter Name'] = twitter_name
+            df['Twitter @'] = twitter_username
+
+
+            #########################
+            # Check to see if 'Follow' column is blank/NaN
+            if df['Follow'].isnull().values.any():
+                #df['Follow'] = df['text'].str.extract('@(.*'')')
+                # Return most recent tweet
+                return df.head(1)
+            else:
+                return df.head(1)
+
+    except ValueError:
+        # Another check to see if NaN values passed through to create empty dataframe
+        df = pd.DataFrame(data={'id':['No Data'],'text':['No Data'],'Follow':['No Data'],
+                                'Twitter Name':[twitter_name],'Twitter @':[twitter_username]})
+
+        return df.head(1)
+
+    ######################
